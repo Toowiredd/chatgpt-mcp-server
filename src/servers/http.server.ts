@@ -2,17 +2,36 @@ import * as http from 'http';
 import { DockerService } from '../services/docker.service.js';
 import { ConfigService } from '../services/config.service.js';
 
+const SHUTDOWN_TIMEOUT = 10000; // 10 seconds
+
 export class HttpServer {
   private server: http.Server;
   private dockerService: DockerService;
   private config: ConfigService;
   private requestCount: number = 0;
   private lastRequestTime: number = Date.now();
+  private activeConnections = new Set<http.ServerResponse>();
 
   constructor(dockerService: DockerService) {
     this.dockerService = dockerService;
     this.config = ConfigService.getInstance();
     this.server = http.createServer(this.handleRequest.bind(this));
+
+    // Track connections for graceful shutdown
+    this.server.on('connection', (socket) => {
+      socket.setKeepAlive(true);
+      socket.setTimeout(120000); // 2 minute timeout
+    });
+
+    // Handle server errors
+    this.server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${this.config.httpPort} is already in use`);
+        process.exit(1);
+      } else {
+        console.error('HTTP Server error:', error);
+      }
+    });
   }
 
   private checkRateLimit(): boolean {
@@ -27,6 +46,12 @@ export class HttpServer {
   }
 
   private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    // Track active connections
+    this.activeConnections.add(res);
+    res.on('finish', () => {
+      this.activeConnections.delete(res);
+    });
+
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -62,9 +87,19 @@ export class HttpServer {
           res.end(JSON.stringify({ containers: output.trim().split('\n') }));
         } else if (req.method === 'POST') {
           let body = '';
-          req.on('data', chunk => { body += chunk.toString(); });
+          const chunks: Buffer[] = [];
+
+          req.on('error', (error) => {
+            console.error('Error reading request:', error);
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: 'Error reading request' }));
+          });
+
+          req.on('data', chunk => chunks.push(chunk));
+
           req.on('end', async () => {
             try {
+              body = Buffer.concat(chunks).toString();
               const data = JSON.parse(body) as {
                 image: string;
                 name?: string;
@@ -90,25 +125,70 @@ export class HttpServer {
       }
     } catch (error) {
       console.error('Error handling request:', error);
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: 'Internal server error' }));
+      if (!res.headersSent) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: 'Internal server error' }));
+      }
+    }
+  }
+
+  private async closeConnections(): Promise<void> {
+    // Close all keep-alive connections
+    for (const res of this.activeConnections) {
+      res.end();
     }
   }
 
   async start(): Promise<void> {
-    return new Promise((resolve) => {
-      this.server.listen(this.config.httpPort, () => {
-        console.log(`HTTP server listening on port ${this.config.httpPort}`);
-        resolve();
+    return new Promise((resolve, reject) => {
+      // Check if port is available before starting
+      const testServer = http.createServer();
+      testServer.once('error', (error: NodeJS.ErrnoException) => {
+        if (error.code === 'EADDRINUSE') {
+          reject(new Error(`Port ${this.config.httpPort} is already in use`));
+        } else {
+          reject(error);
+        }
       });
+
+      testServer.once('listening', () => {
+        testServer.close(() => {
+          this.server.listen(this.config.httpPort, () => {
+            console.log(`HTTP server listening on port ${this.config.httpPort}`);
+            resolve();
+          });
+        });
+      });
+
+      testServer.listen(this.config.httpPort);
     });
   }
 
   async stop(): Promise<void> {
     return new Promise((resolve, reject) => {
+      let forceShutdown: NodeJS.Timeout;
+
+      // First, stop accepting new connections
+      this.server.unref();
+
+      // Close existing keep-alive connections
+      this.closeConnections();
+
+      // Set a timeout for graceful shutdown
+      forceShutdown = setTimeout(() => {
+        console.warn('Forcing HTTP server shutdown');
+        this.server.closeAllConnections();
+        resolve();
+      }, SHUTDOWN_TIMEOUT);
+
       this.server.close((err) => {
-        if (err) reject(err);
-        else resolve();
+        clearTimeout(forceShutdown);
+        if (err) {
+          console.error('Error closing HTTP server:', err);
+          reject(err);
+        } else {
+          resolve();
+        }
       });
     });
   }

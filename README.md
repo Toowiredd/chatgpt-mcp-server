@@ -8,6 +8,9 @@ A Model Context Protocol (MCP) server that provides Docker management capabiliti
 - Built on the Model Context Protocol (MCP)
 - TypeScript implementation
 - Containerized deployment
+- Robust error handling and graceful shutdown
+- Resource management and port handling
+- Rate limiting and API key authentication
 
 ## Setup
 
@@ -66,6 +69,34 @@ docker run -d \
 - `HTTP_PORT` - Server port (default: 3001)
 - `RATE_LIMIT_REQUESTS` - Maximum requests per window
 - `RATE_LIMIT_WINDOW` - Window size in milliseconds
+
+## Resource Management
+
+The server implements robust resource management:
+
+- Graceful shutdown on process signals (SIGINT, SIGTERM, SIGQUIT)
+- Connection tracking and management
+- Request timeout handling
+- Port conflict detection
+- Keep-alive connection management
+- Active request tracking and graceful completion
+
+### Shutdown Process
+
+1. The server initiates graceful shutdown on process signals
+2. New connections are rejected
+3. Active requests are allowed to complete (with timeout)
+4. Keep-alive connections are closed
+5. Server ports are properly released
+6. Resources are properly released
+
+### Error Handling
+
+- Port conflicts are detected and reported
+- Unhandled rejections and exceptions are caught
+- Network errors are properly handled
+- Resource leaks are prevented through proper handling
+- Timeouts ensure the server doesn't hang during shutdown
 
 ## License
 

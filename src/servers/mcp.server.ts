@@ -9,12 +9,17 @@ import {
 import { DockerService } from '../services/docker.service.js';
 import { ConfigService } from '../services/config.service.js';
 
+const SHUTDOWN_TIMEOUT = 5000; // 5 seconds
+
 export class McpServer {
   private server: Server;
   private dockerService: DockerService;
   private config: ConfigService;
   private requestCount: number = 0;
   private lastRequestTime: number = Date.now();
+  private transport: StdioServerTransport | null = null;
+  private activeRequests = new Set<Promise<any>>();
+  private isShuttingDown = false;
 
   constructor(dockerService: DockerService) {
     this.dockerService = dockerService;
@@ -36,6 +41,13 @@ export class McpServer {
   }
 
   private checkRateLimit(): void {
+    if (this.isShuttingDown) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'Server is shutting down'
+      );
+    }
+
     const now = Date.now();
     if (now - this.lastRequestTime > this.config.rateLimitWindow) {
       this.requestCount = 0;
@@ -56,10 +68,20 @@ export class McpServer {
       console.error('[MCP Error]', error);
     };
 
-    process.on('SIGINT', async () => {
-      await this.stop();
-      process.exit(0);
+    // Handle transport errors
+    process.on('error', (error) => {
+      console.error('[Transport Error]', error);
+      this.stop().catch(console.error);
     });
+  }
+
+  private async wrapRequest<T>(request: Promise<T>): Promise<T> {
+    this.activeRequests.add(request);
+    try {
+      return await request;
+    } finally {
+      this.activeRequests.delete(request);
+    }
   }
 
   private setupTools(): void {
@@ -194,109 +216,149 @@ export class McpServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       this.checkRateLimit();
 
-      try {
-        switch (request.params.name) {
-          case 'containers_list': {
-            const { all } = request.params.arguments as { all?: boolean };
-            const output = await this.dockerService.listContainers(all);
-            return {
-              content: [{ type: 'text', text: output }],
-            };
+      const toolRequest = (async () => {
+        try {
+          switch (request.params.name) {
+            case 'containers_list': {
+              const { all } = request.params.arguments as { all?: boolean };
+              const output = await this.dockerService.listContainers(all);
+              return {
+                content: [{ type: 'text', text: output }],
+              };
+            }
+
+            case 'container_create': {
+              const { image, name, ports, env } = request.params.arguments as {
+                image: string;
+                name?: string;
+                ports?: string[];
+                env?: string[];
+              };
+
+              const output = await this.dockerService.createContainer({
+                image,
+                name,
+                ports,
+                env,
+              });
+              return {
+                content: [{ type: 'text', text: `Container created: ${output}` }],
+              };
+            }
+
+            case 'container_stop': {
+              const { container } = request.params.arguments as { container: string };
+              const output = await this.dockerService.stopContainer(container);
+              return {
+                content: [{ type: 'text', text: `Container stopped: ${output}` }],
+              };
+            }
+
+            case 'container_start': {
+              const { container } = request.params.arguments as { container: string };
+              const output = await this.dockerService.startContainer(container);
+              return {
+                content: [{ type: 'text', text: `Container started: ${output}` }],
+              };
+            }
+
+            case 'container_remove': {
+              const { container, force } = request.params.arguments as {
+                container: string;
+                force?: boolean;
+              };
+              const output = await this.dockerService.removeContainer(container, force);
+              return {
+                content: [{ type: 'text', text: `Container removed: ${output}` }],
+              };
+            }
+
+            case 'container_logs': {
+              const { container, tail } = request.params.arguments as {
+                container: string;
+                tail?: number;
+              };
+              const output = await this.dockerService.getContainerLogs(container, tail);
+              return {
+                content: [{ type: 'text', text: output }],
+              };
+            }
+
+            case 'container_exec': {
+              const { container, command } = request.params.arguments as {
+                container: string;
+                command: string;
+              };
+              const output = await this.dockerService.execInContainer(container, command);
+              return {
+                content: [{ type: 'text', text: output }],
+              };
+            }
+
+            default:
+              throw new McpError(
+                ErrorCode.MethodNotFound,
+                `Unknown tool: ${request.params.name}`
+              );
           }
-
-          case 'container_create': {
-            const { image, name, ports, env } = request.params.arguments as {
-              image: string;
-              name?: string;
-              ports?: string[];
-              env?: string[];
-            };
-
-            const output = await this.dockerService.createContainer({
-              image,
-              name,
-              ports,
-              env,
-            });
-            return {
-              content: [{ type: 'text', text: `Container created: ${output}` }],
-            };
+        } catch (error) {
+          if (error instanceof McpError) {
+            throw error;
           }
-
-          case 'container_stop': {
-            const { container } = request.params.arguments as { container: string };
-            const output = await this.dockerService.stopContainer(container);
-            return {
-              content: [{ type: 'text', text: `Container stopped: ${output}` }],
-            };
-          }
-
-          case 'container_start': {
-            const { container } = request.params.arguments as { container: string };
-            const output = await this.dockerService.startContainer(container);
-            return {
-              content: [{ type: 'text', text: `Container started: ${output}` }],
-            };
-          }
-
-          case 'container_remove': {
-            const { container, force } = request.params.arguments as {
-              container: string;
-              force?: boolean;
-            };
-            const output = await this.dockerService.removeContainer(container, force);
-            return {
-              content: [{ type: 'text', text: `Container removed: ${output}` }],
-            };
-          }
-
-          case 'container_logs': {
-            const { container, tail } = request.params.arguments as {
-              container: string;
-              tail?: number;
-            };
-            const output = await this.dockerService.getContainerLogs(container, tail);
-            return {
-              content: [{ type: 'text', text: output }],
-            };
-          }
-
-          case 'container_exec': {
-            const { container, command } = request.params.arguments as {
-              container: string;
-              command: string;
-            };
-            const output = await this.dockerService.execInContainer(container, command);
-            return {
-              content: [{ type: 'text', text: output }],
-            };
-          }
-
-          default:
-            throw new McpError(
-              ErrorCode.MethodNotFound,
-              `Unknown tool: ${request.params.name}`
-            );
+          throw new McpError(
+            ErrorCode.InternalError,
+            `Error executing Docker command: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
-      } catch (error) {
-        if (error instanceof McpError) {
-          throw error;
-        }
-        throw new McpError(
-          ErrorCode.InternalError,
-          `Error executing Docker command: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
+      })();
+
+      return this.wrapRequest(toolRequest);
     });
   }
 
   async start(): Promise<void> {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.log('MCP server running on stdio');
+    try {
+      this.transport = new StdioServerTransport();
+      await this.server.connect(this.transport);
+      console.log('MCP server running on stdio');
+    } catch (error) {
+      console.error('Failed to start MCP server:', error);
+      throw error;
+    }
   }
 
   async stop(): Promise<void> {
-    await this.server.close();
+    this.isShuttingDown = true;
+
+    return new Promise<void>(async (resolve, reject) => {
+      const timeoutHandle = setTimeout(() => {
+        console.warn('MCP server shutdown timeout reached');
+        resolve();
+      }, SHUTDOWN_TIMEOUT);
+
+      try {
+        // Wait for active requests to complete
+        if (this.activeRequests.size > 0) {
+          console.log(`Waiting for ${this.activeRequests.size} active requests to complete...`);
+          await Promise.race([
+            Promise.all(this.activeRequests),
+            new Promise(r => setTimeout(r, SHUTDOWN_TIMEOUT))
+          ]);
+        }
+
+        // Clean up resources
+        if (this.transport) {
+          await this.server.close();
+          this.transport = null;
+        }
+
+        clearTimeout(timeoutHandle);
+        resolve();
+      } catch (error) {
+        clearTimeout(timeoutHandle);
+        console.error('Error during MCP server shutdown:', error);
+        reject(error);
+      }
+    });
   }
 }
