@@ -1,0 +1,29 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - apiKey
+    properties:
+      apiKey:
+        type: string
+        description: The API authentication key for the server.
+      httpPort:
+        type: number
+        default: 3001
+        description: The port the server listens on.
+      rateLimitRequests:
+        type: number
+        default: 100
+        description: Maximum number of requests allowed per window.
+      rateLimitWindow:
+        type: number
+        default: 60000
+        description: Window size in milliseconds for rate limiting.
+  commandFunction:
+    # A function that produces the CLI command to start the MCP on stdio.
+    |-
+    (config) => ({ command: 'node', args: ['build/index.js'], env: { API_KEY: config.apiKey, HTTP_PORT: config.httpPort.toString(), RATE_LIMIT_REQUESTS: config.rateLimitRequests.toString(), RATE_LIMIT_WINDOW: config.rateLimitWindow.toString() } })
