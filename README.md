@@ -13,7 +13,7 @@ A Model Context Protocol (MCP) server that provides Docker management capabiliti
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/chatgpt-mcp-server.git
+git clone https://github.com/toowiredd/chatgpt-mcp-server.git
 cd chatgpt-mcp-server
 ```
 
@@ -37,10 +37,15 @@ npm run build
 
 1. Build the container
 ```bash
-docker build -t chatgpt-mcp-server .
+npm run docker:build
 ```
 
 2. Run the container
+```bash
+npm run docker:run
+```
+
+Or manually:
 ```bash
 docker run -d \
   -p 3001:3001 \
@@ -61,3 +66,7 @@ docker run -d \
 - `HTTP_PORT` - Server port (default: 3001)
 - `RATE_LIMIT_REQUESTS` - Maximum requests per window
 - `RATE_LIMIT_WINDOW` - Window size in milliseconds
+
+## License
+
+MIT
