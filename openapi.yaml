@@ -1,0 +1,252 @@
+# OpenAPI specification for Docker Management API
+openapi: 3.1.0
+info:
+  title: Docker Management API
+  description: >
+    API for managing Docker containers on a remote VPS. This API provides
+    capabilities for creating, managing, and monitoring Docker containers
+    through a RESTful interface.
+  version: 1.0.0
+
+servers:
+  - url: http://208.87.129.233
+    description: Docker Management API Server
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+  schemas:
+    Container:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Container ID
+        name:
+          type: string
+          description: Container name
+        image:
+          type: string
+          description: Image name
+        status:
+          type: string
+          description: Container status
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Error message details
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /containers:
+    get:
+      operationId: listContainers
+      summary: List all containers
+      description: Returns a list of all Docker containers
+      parameters:
+        - name: all
+          in: query
+          description: Show all containers (including stopped ones)
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of containers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Container'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      operationId: createContainer
+      summary: Create and start a new container
+      description: Creates a new Docker container from the specified image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  description: Docker image name
+                name:
+                  type: string
+                  description: Container name
+                ports:
+                  type: array
+                  items:
+                    type: string
+                  description: Port mappings
+                env:
+                  type: array
+                  items:
+                    type: string
+                  description: Environment variables
+              example:
+                image: nginx:latest
+                name: web-server
+                ports:
+                  - "80:80"
+                env:
+                  - "NGINX_HOST=example.com"
+      responses:
+        '201':
+          description: Container created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  containerId:
+                    type: string
+                    description: ID of created container
+
+  /containers/{id}:
+    delete:
+      operationId: removeContainer
+      summary: Remove a container
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Container ID or name
+        - in: query
+          name: force
+          schema:
+            type: boolean
+          required: false
+          description: Force remove running container
+      responses:
+        '200':
+          description: Container removed
+        '404':
+          description: Container not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /containers/{id}/start:
+    post:
+      operationId: startContainer
+      summary: Start a container
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Container ID or name
+      responses:
+        '200':
+          description: Container started
+        '404':
+          description: Container not found
+
+  /containers/{id}/stop:
+    post:
+      operationId: stopContainer
+      summary: Stop a container
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Container ID or name
+      responses:
+        '200':
+          description: Container stopped
+        '404':
+          description: Container not found
+
+  /containers/{id}/logs:
+    get:
+      operationId: getContainerLogs
+      summary: Get container logs
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Container ID or name
+        - in: query
+          name: tail
+          schema:
+            type: integer
+            minimum: 1
+          required: false
+          description: Number of lines to show from the end
+      responses:
+        '200':
+          description: Container logs
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Container not found
+
+  /containers/{id}/exec:
+    post:
+      operationId: execInContainer
+      summary: Execute a command in a container
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Container ID or name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - command
+              properties:
+                command:
+                  type: string
+                  description: Command to execute
+              example:
+                command: "ls -la /app"
+      responses:
+        '200':
+          description: Command output
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Container not found

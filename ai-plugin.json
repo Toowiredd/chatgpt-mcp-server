@@ -1,0 +1,22 @@
+{
+    "schema_version": "v1",
+    "name_for_human": "Docker VPS Manager",
+    "name_for_model": "docker_vps_manager",
+    "description_for_human": "Manage Docker containers on your remote VPS through natural language commands.",
+    "description_for_model": "API for managing Docker containers including creating, starting, stopping, and monitoring containers on a remote VPS. Use this to help users manage their Docker infrastructure through natural language.",
+    "auth": {
+        "type": "service_http",
+        "authorization_type": "header",
+        "verification_tokens": {
+            "openai": "your-openai-verification-token"
+        }
+    },
+    "api": {
+        "type": "openapi",
+        "url": "http://208.87.129.233/openapi.yaml",
+        "has_user_authentication": false
+    },
+    "logo_url": "http://208.87.129.233/logo.png",
+    "contact_email": "your-email@domain.com",
+    "legal_info_url": "http://208.87.129.233/legal"
+}

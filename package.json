@@ -1,0 +1,43 @@
+{
+  "name": "chatgpt-mcp-server",
+  "version": "0.1.0",
+  "description": "A Model Context Protocol server for Docker management through ChatGPT",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "chatgpt-mcp-server": "./build/index.js"
+  },
+  "files": [
+    "build"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "start": "node build/index.js",
+    "docker:build": "docker build -t chatgpt-mcp-server .",
+    "docker:run": "docker run -d -p 3001:3001 --env-file .env -v /var/run/docker.sock:/var/run/docker.sock chatgpt-mcp-server"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "0.6.0",
+    "dotenv": "^16.4.7",
+    "openai": "^4.84.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "typescript": "^5.3.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toowiredd/chatgpt-mcp-server.git"
+  },
+  "keywords": [
+    "chatgpt",
+    "docker",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "author": "",
+  "license": "MIT"
+}
