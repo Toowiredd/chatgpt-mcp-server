@@ -1,16 +1,18 @@
-# OpenAPI specification for Docker Management API
 openapi: 3.1.0
 info:
-  title: Docker Management API
-  description: >
-    API for managing Docker containers on a remote VPS. This API provides
-    capabilities for creating, managing, and monitoring Docker containers
-    through a RESTful interface.
+  title: Docker VPS Manager API
+  description: |
+    API for managing Docker containers on a remote VPS through natural language commands.
+
+    This API enables ChatGPT to help users:
+    - Create and manage Docker containers
+    - Monitor container status and logs
+    - Execute commands within containers
   version: 1.0.0
 
 servers:
-  - url: http://208.87.129.233
-    description: Docker Management API Server
+  - url: https://chat.toowired.solutions/api
+    description: Docker Manager API server
 
 components:
   securitySchemes:
@@ -36,6 +38,15 @@ components:
         status:
           type: string
           description: Container status
+        ports:
+          type: array
+          items:
+            type: string
+          description: Port mappings
+        created:
+          type: string
+          format: date-time
+          description: Creation timestamp
 
     Error:
       type: object

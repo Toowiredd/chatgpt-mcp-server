@@ -54,7 +54,7 @@ export class HttpServer {
 
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS, HEAD');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
 
     // Handle preflight requests
@@ -64,23 +64,37 @@ export class HttpServer {
       return;
     }
 
+    // Handle health check without requiring API key
+    if (req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'OK' }));
+      return;
+    }
+
+    // Handle root path
+    if (req.url === '/' || req.url === '/api') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'running' }));
+      return;
+    }
+
     // Check API key
     const apiKey = req.headers['x-api-key'];
     if (!apiKey || apiKey !== this.config.apiKey) {
-      res.writeHead(401);
+      res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Invalid API key' }));
       return;
     }
 
     // Check rate limit
     if (!this.checkRateLimit()) {
-      res.writeHead(429);
+      res.writeHead(429, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Rate limit exceeded' }));
       return;
     }
 
     try {
-      if (req.url?.startsWith('/containers')) {
+      if (req.url?.startsWith('/api/containers')) {
         if (req.method === 'GET') {
           const output = await this.dockerService.listContainers();
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -111,22 +125,22 @@ export class HttpServer {
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ containerId: output.trim() }));
             } catch (error) {
-              res.writeHead(400);
+              res.writeHead(400, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'Invalid request body' }));
             }
           });
         } else {
-          res.writeHead(405);
+          res.writeHead(405, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Method not allowed' }));
         }
       } else {
-        res.writeHead(404);
+        res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not found' }));
       }
     } catch (error) {
       console.error('Error handling request:', error);
       if (!res.headersSent) {
-        res.writeHead(500);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Internal server error' }));
       }
     }
