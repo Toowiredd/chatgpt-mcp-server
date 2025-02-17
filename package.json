@@ -21,10 +21,14 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",
+    "bcrypt": "^5.1.1",
     "dotenv": "^16.4.7",
+    "jsonwebtoken": "^9.0.2",
     "openai": "^4.84.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.8",
     "@types/node": "^20.11.24",
     "typescript": "^5.3.3"
   },

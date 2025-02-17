@@ -58,6 +58,68 @@ components:
           type: string
           description: Error message details
 
+    User:
+      type: object
+      properties:
+        email:
+          type: string
+          description: User email
+        password:
+          type: string
+          description: User password
+        name:
+          type: string
+          description: User name
+
+    Token:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token
+
+    SystemStatus:
+      type: object
+      properties:
+        uptime:
+          type: string
+          description: System uptime
+        memory:
+          type: string
+          description: Memory usage details
+        disk:
+          type: string
+          description: Disk usage details
+        load:
+          type: string
+          description: Load average details
+
+    ServiceAction:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Service name
+        action:
+          type: string
+          description: Action to perform (start/stop/restart)
+
+    Command:
+      type: object
+      properties:
+        command:
+          type: string
+          description: Command to execute
+
+    Log:
+      type: object
+      properties:
+        logs:
+          type: array
+          items:
+            type: string
+          description: Log entries
+
 security:
   - ApiKeyAuth: []
 
@@ -261,3 +323,217 @@ paths:
                 type: string
         '404':
           description: Container not found
+
+  /register:
+    post:
+      operationId: registerUser
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /login:
+    post:
+      operationId: loginUser
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /system/status:
+    get:
+      operationId: getSystemStatus
+      summary: Get system status
+      responses:
+        '200':
+          description: System status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
+
+  /system/service:
+    post:
+      operationId: manageSystemService
+      summary: Manage system service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceAction'
+      responses:
+        '200':
+          description: Service managed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Status of the action
+                  output:
+                    type: string
+                    description: Output of the action
+                  error:
+                    type: string
+                    description: Error if any
+
+  /logs/system:
+    get:
+      operationId: getSystemLogs
+      summary: Get system logs
+      responses:
+        '200':
+          description: System logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Log'
+
+  /logs/application/{name}:
+    get:
+      operationId: getApplicationLogs
+      summary: Get application logs
+      parameters:
+        - in: path
+          name: name
+          schema:
+            type: string
+          required: true
+          description: Application name
+      responses:
+        '200':
+          description: Application logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Log'
+
+  /command/execute:
+    post:
+      operationId: executeCommand
+      summary: Execute a command
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Command'
+      responses:
+        '200':
+          description: Command executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Status of the command
+                  output:
+                    type: string
+                    description: Output of the command
+                  error:
+                    type: string
+                    description: Error if any
+                  code:
+                    type: integer
+                    description: Exit code of the command
+
+  /docker/containers:
+    get:
+      operationId: listDockerContainers
+      summary: List Docker containers
+      responses:
+        '200':
+          description: Docker containers listed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Status of the request
+                  containers:
+                    type: string
+                    description: List of containers
+
+  /docker/container/{action}:
+    post:
+      operationId: dockerContainerAction
+      summary: Perform action on Docker container
+      parameters:
+        - in: path
+          name: action
+          schema:
+            type: string
+          required: true
+          description: Action to perform (start/stop/restart/remove)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                containerId:
+                  type: string
+                  description: ID of the container
+      responses:
+        '200':
+          description: Action performed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Status of the action
+                  output:
+                    type: string
+                    description: Output of the action
+                  error:
+                    type: string
+                    description: Error if any
