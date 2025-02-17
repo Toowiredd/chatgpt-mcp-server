@@ -73,6 +73,82 @@ curl -X DELETE "http://208.87.129.233/containers/web-server?force=true" \
   -H "X-API-Key: 89cd6f2df5d03771eab7f3cb7cfe59709bf8b8088eaa23cfb45f00bc91b51375"
 ```
 
+### Register User
+```bash
+curl -X POST "http://208.87.129.233/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!",
+    "name": "John Doe"
+  }'
+```
+
+### Login
+```bash
+curl -X POST "http://208.87.129.233/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+### Get System Status
+```bash
+curl -X GET "http://208.87.129.233/system/status" \
+  -H "Authorization: Bearer <jwt_token>"
+```
+
+### Manage System Service
+```bash
+curl -X POST "http://208.87.129.233/system/service" \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "nginx",
+    "action": "restart"
+  }'
+```
+
+### Get System Logs
+```bash
+curl -X GET "http://208.87.129.233/logs/system" \
+  -H "Authorization: Bearer <jwt_token>"
+```
+
+### Get Application Logs
+```bash
+curl -X GET "http://208.87.129.233/logs/application/{name}" \
+  -H "Authorization: Bearer <jwt_token>"
+```
+
+### Execute Command
+```bash
+curl -X POST "http://208.87.129.233/command/execute" \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "command": "ls -l"
+  }'
+```
+
+### List Docker Containers
+```bash
+curl -X GET "http://208.87.129.233/docker/containers" \
+  -H "Authorization: Bearer <jwt_token>"
+```
+
+### Docker Container Action
+```bash
+curl -X POST "http://208.87.129.233/docker/container/{action}" \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "containerId": "container_id"
+  }'
+```
+
 ## Response Examples
 
 ### Successful Container List Response

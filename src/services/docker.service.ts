@@ -61,4 +61,18 @@ export class DockerService {
   async execInContainer(id: string, command: string): Promise<string> {
     return this.executeCommand(`exec ${id} ${command}`);
   }
+
+  async listDockerContainers(): Promise<{ status: string; containers: string }> {
+    const containers = await this.listContainers();
+    return { status: 'success', containers };
+  }
+
+  async performContainerAction(action: string, containerId: string): Promise<{ status: string; output: string; error: string }> {
+    const { stdout, stderr } = await execAsync(`docker ${action} ${containerId}`);
+    return {
+      status: 'success',
+      output: stdout.trim(),
+      error: stderr.trim(),
+    };
+  }
 }
