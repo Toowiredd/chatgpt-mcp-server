@@ -1,4 +1,5 @@
 # ChatGPT MCP Server
+[![smithery badge](https://smithery.ai/badge/@Toowiredd/chatgpt-mcp-server)](https://smithery.ai/server/@Toowiredd/chatgpt-mcp-server)
 
 A Model Context Protocol (MCP) server that provides Docker management capabilities through a custom GPT interface.
 
@@ -13,7 +14,15 @@ A Model Context Protocol (MCP) server that provides Docker management capabiliti
 - Rate limiting and API key authentication
 
 ## Setup
+### Installing via Smithery
 
+To install ChatGPT MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Toowiredd/chatgpt-mcp-server):
+
+```bash
+npx -y @smithery/cli install @Toowiredd/chatgpt-mcp-server --client claude
+```
+
+### Manual Installation
 1. Clone the repository
 ```bash
 git clone https://github.com/toowiredd/chatgpt-mcp-server.git
